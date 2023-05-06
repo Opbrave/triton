@@ -1439,10 +1439,13 @@ void init_triton_ir(py::module &&m) {
              auto printingFlags = mlir::OpPrintingFlags();
              printingFlags.elideLargeElementsAttrs(16);
              self.enableIRPrinting(
-                 /*shouldPrintBeforePass=*/nullptr,
+                 /*shouldPrintBeforePass=*/
+                 [](mlir::Pass *pass, mlir::Operation *) {
+                   return true;
+                 },
                  /*shouldPrintAfterPass=*/
                  [](mlir::Pass *pass, mlir::Operation *) {
-                   return ::triton::tools::getBoolEnv("MLIR_ENABLE_DUMP");
+                   return true;
                  },
                  /*printModuleScope=*/false,
                  /*printAfterOnlyOnChange=*/true,
@@ -1453,6 +1456,7 @@ void init_triton_ir(py::module &&m) {
            [](mlir::PassManager &self, mlir::ModuleOp &mod) {
              // TODO: maybe dump module to file and print error for better
              // diagnostics
+             mod.dump();
              if (mlir::failed(self.run(mod.getOperation())))
                throw std::runtime_error("PassManager::run failed");
            })

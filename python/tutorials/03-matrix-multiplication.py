@@ -274,6 +274,51 @@ def matmul(a, b, activation=""):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=a.dtype)
     # 1D launch kernel where each block gets its own program.
+    # @param: (M, N, K) = (512, 512, 512), (BLOCK_SIZE_M, BLOCK_SIZE_N, BLOCK_SIZE_K) = (128, 256, 64)
+    # @param: GROUP_SIZE_M = 8
+    # @calculate: grid = [0, 7]
+    # @calculate:
+    """
+    pid = tl.program_id(axis=0)                                pid = [0, 7]
+    num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)                       num_pid_m = 4
+    num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)                       num_pid_n = 2
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n                num_pid_in_group = 16
+    group_id = pid // num_pid_in_group                         group_id = 0
+    first_pid_m = group_id * GROUP_SIZE_M                      first_pid_m = 0
+    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)  group_size_m = 4
+    pid_m = first_pid_m + (pid % group_size_m)                 pid_m = [0, 1, 2, 3, 0, 1, 2, 3]
+    pid_n = (pid % num_pid_in_group) // group_size_m           pid_n = [0, 0, 0, 0, 1, 1, 1, 1]
+
+    """
+    # @param: (M, N, K) = (512, 512, 512), (BLOCK_SIZE_M, BLOCK_SIZE_N, BLOCK_SIZE_K) = (64, 32, 32)
+    # @param: GROUP_SIZE_M = 8
+    """
+    pid = tl.program_id(axis=0)                                pid = [0, 127]
+    num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)                       num_pid_m = 8
+    num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)                       num_pid_n = 16
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n                num_pid_in_group = 8 * 16 = 128
+    group_id = pid // num_pid_in_group                         group_id = 0
+    first_pid_m = group_id * GROUP_SIZE_M                      first_pid_m = 0
+    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)  group_size_m = 8
+    pid_m = first_pid_m + (pid % group_size_m)                 pid_m = [0, 1, 2, 3, 4, 5, 6, 7, ..., 0, 1, 2, 3, 4, 5, 6, 7]
+    pid_n = (pid % num_pid_in_group) // group_size_m           pid_n = [0, 0, 0, 0, 0, 0, 0, 0, ..., 7, 7, 7, 7, 7, 7, 7, 7]
+    
+    """
+    # @param: (M, N, K) = (512, 512, 512), (BLOCK_SIZE_M, BLOCK_SIZE_N, BLOCK_SIZE_K) = (32, 64, 32)
+    # @param: GROUP_SIZE_M = 8
+    """
+    pid = tl.program_id(axis=0)                                pid = [0, 127]
+    num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)                       num_pid_m = 16
+    num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)                       num_pid_n = 8
+    num_pid_in_group = GROUP_SIZE_M * num_pid_n                num_pid_in_group = 8 * 8 = 64
+    group_id = pid // num_pid_in_group                         group_id = [0, 0, 0, ..., 0, 1, 1, 1, ..., 1]
+    first_pid_m = group_id * GROUP_SIZE_M                      first_pid_m = [0, 0, 0, ..., 0, 8, 8, 8, ..., 8]
+    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)  group_size_m = 8
+    pid_m = first_pid_m + (pid % group_size_m)                 pid_m = [0, 1, 2, 3, 4, 5, 6, 7, ..., 0+8, 1+8 , 2+8, 3+8, 4+8, 5+8, 6+8, 7+8]
+    pid_n = (pid % num_pid_in_group) // group_size_m           pid_n = [0, 0, 0, 0, 0, 0, 0, 0, ..., 7, 7, 7, 7, 7, 7, 7, 7]
+    
+    """
+
     grid = lambda META: (
         triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )

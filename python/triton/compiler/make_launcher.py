@@ -30,6 +30,9 @@ def make_stub(name, signature, constants):
     so_name = f"{name}.so"
     # retrieve stub from cache if it exists
     cache_path = so_cache_manager.get_file(so_name)
+    print("cache_path: {}".format(cache_path))
+    import pdb
+    pdb.set_trace()
     if cache_path is None:
         with tempfile.TemporaryDirectory() as tmpdir:
             src = generate_launcher(constants, signature)
@@ -200,6 +203,8 @@ def generate_launcher(constants, signature):
       if (launch_enter_hook != Py_None) {{
         PyObject_CallObject(launch_enter_hook, args);
       }}
+      
+      
 
       // raise exception asap
       {"; ".join([f"DevicePtrInfo ptr_info{i} = getPointer(_arg{i}, {i}); if (!ptr_info{i}.valid) return NULL;" if ty[0] == "*" else "" for i, ty in signature.items()])};
@@ -243,6 +248,7 @@ def generate_launcher(constants, signature):
 #include \"cuda.h\"
 #include <stdbool.h>
 #include <Python.h>
+#include <stdio.h>
 
 static inline void gpuAssert(CUresult code, const char *file, int line)
 {{
@@ -262,6 +268,8 @@ static inline void gpuAssert(CUresult code, const char *file, int line)
 
 static void _launch(int gridX, int gridY, int gridZ, int num_warps, int shared_memory, CUstream stream, CUfunction function, {arg_decls}) {{
   void *params[] = {{ {', '.join(f"&arg{i}" for i in signature.keys() if i not in constants)} }};
+  printf("----->gridX:%d  ", gridX);
+  printf("----->num_warps:%d  ", num_warps);
   if(gridX*gridY*gridZ > 0){{
     CUDA_CHECK(cuLaunchKernel(function, gridX, gridY, gridZ, 32*num_warps, 1, 1, shared_memory, stream, params, 0));
   }}

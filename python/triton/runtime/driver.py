@@ -34,18 +34,22 @@ class CudaUtils(object):
     def __init__(self):
         dirname = os.path.dirname(os.path.realpath(__file__))
         src = Path(os.path.join(dirname, "backends", "cuda.c")).read_text()
+        print("cuda source:{}".format(src))
         key = hashlib.md5(src.encode("utf-8")).hexdigest()
         cache = get_cache_manager(key)
         fname = "cuda_utils.so"
         cache_path = cache.get_file(fname)
+        print("cache_path:{}".format(cache_path))
         if cache_path is None:
             with tempfile.TemporaryDirectory() as tmpdir:
                 src_path = os.path.join(tmpdir, "main.c")
                 with open(src_path, "w") as f:
                     f.write(src)
+                print("cuda src_path:{}".format(src_path))
                 so = _build("cuda_utils", src_path, tmpdir)
                 with open(so, "rb") as f:
                     cache_path = cache.put(f.read(), fname, binary=True)
+
         import importlib.util
         spec = importlib.util.spec_from_file_location("cuda_utils", cache_path)
         mod = importlib.util.module_from_spec(spec)

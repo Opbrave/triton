@@ -22,6 +22,7 @@ from .code_generator import ast_to_ttir
 from .make_launcher import make_stub
 
 
+import pdb
 def inline_triton_ir(mod):
     pm = _triton.ir.pass_manager(mod.context)
     pm.enable_debug()
@@ -362,6 +363,7 @@ def add_cuda_stages(arch, extern_libs, stages):
 
 
 def compile(fn, **kwargs):
+    pdb.set_trace()
     arch = get_architecture_descriptor(kwargs.get("cc", None))
     is_cuda = _is_cuda(arch)
     context = _triton.ir.context()
@@ -403,6 +405,7 @@ def compile(fn, **kwargs):
     else:
         assert isinstance(fn, str)
         _, ir = os.path.basename(fn).split(".")
+        print("fn_abspath{}".format(os.path.abspath(fn)))
         src = Path(fn).read_text()
         import re
         match = re.search(prototype_pattern[ir], src, re.MULTILINE)
@@ -458,9 +461,13 @@ def compile(fn, **kwargs):
         ir_filename = f"{name}.{ir}"
 
         if ir == ext:
+            pdb.set_trace()
             next_module = parse(fn)
+            print("parse module:{}".format(next_module))
         else:
+            pdb.set_trace()
             path = metadata_group.get(ir_filename)
+            print("path {}".format(path))
             if path is None:
                 next_module = compile_kernel(module)
                 if ir == "amdgcn":
@@ -479,6 +486,7 @@ def compile(fn, **kwargs):
                 else:
                     next_module = parse(path)
 
+        print("module:{}".format(next_module))
         if ir == "cubin":
             asm[ir] = next_module
         elif ir == "amdgcn":
@@ -499,6 +507,7 @@ def compile(fn, **kwargs):
         fn_cache_manager.put_group(metadata_filename, metadata_group)
 
     # return handle to compiled kernel
+    print("fn: {}, so_path: {}, metadata: {}, asm: {}".format(fn, so_path, metadata, asm))
     return CompiledKernel(fn, so_path, metadata, asm)
 
 
@@ -515,7 +524,9 @@ class CompiledKernel:
         mod = importlib.util.module_from_spec(spec)
         self.fn = fn
         spec.loader.exec_module(mod)
+        print("#########----> mod: {}".format(mod))
         self.c_wrapper = getattr(mod, "launch")
+        print("c_wrapper in module:{}".format(mod))
         # initialize metadata
         self.shared = metadata["shared"]
         self.num_warps = metadata["num_warps"]
@@ -561,6 +572,7 @@ class CompiledKernel:
                 stream = triton.runtime.jit.get_cuda_stream()
             self.c_wrapper(grid[0], grid[1], grid[2], self.num_warps, self.shared, stream, self.cu_function,
                            CompiledKernel.launch_enter_hook, CompiledKernel.launch_exit_hook, self, *args)
+        assert False
         return runner
 
     def get_sass(self, fun=None):

@@ -23,6 +23,11 @@ import torch
 import triton
 import triton.language as tl
 
+import pdb
+
+import os
+os.environ['TRITON_DEBUG'] = '1'
+os.environ['MLIR_ENABLE_DUMP']='1'
 
 @triton.jit
 def add_kernel(
@@ -85,7 +90,10 @@ size = 98432
 x = torch.rand(size, device='cuda')
 y = torch.rand(size, device='cuda')
 output_torch = x + y
+pdb.set_trace()
 output_triton = add(x, y)
+import traceback
+traceback.print_stack()
 print(output_torch)
 print(output_triton)
 print(
@@ -136,4 +144,4 @@ def benchmark(size, provider):
 # %%
 # We can now run the decorated function above. Pass `print_data=True` to see the performance number, `show_plots=True` to plot them, and/or
 # `save_path='/path/to/results/' to save them to disk along with raw CSV data:
-benchmark.run(print_data=True, show_plots=True)
+#benchmark.run(print_data=True, show_plots=True)

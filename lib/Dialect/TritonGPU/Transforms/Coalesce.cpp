@@ -29,6 +29,15 @@ struct CoalescePass : public TritonGPUCoalesceBase<CoalescePass> {
     size_t rank = origType.getRank();
     // Get the contiguity order of `ptr`
     auto order = argSort(axisInfoAnalysis.getAxisInfo(ptr)->getContiguity());
+    llvm::errs() << "--->[Debug]: argSort: \n";
+    ptr.dump();
+    llvm::errs() << "axisInfo: \n";
+    axisInfoAnalysis.getAxisInfo(ptr)->print(llvm::errs());
+    llvm::errs() << "Order[";
+    for (auto val : order) {
+      llvm::errs() << " " << val;
+    }
+    llvm::errs() << "]\n";
     // The desired divisibility is the maximum divisibility
     // among all dependent pointers who have the same order as
     // `ptr`
@@ -54,12 +63,16 @@ struct CoalescePass : public TritonGPUCoalesceBase<CoalescePass> {
     unsigned elemNumBytes = std::max(elemNumBits / 8, 1u);
     unsigned perThread = 1;
     for (Value val : withSameOrder) {
+      // Usage of _divisibility_:
+      // example: divisibility = 8; contiguity = 4;
+      // maxMultiple = 2; maxContig = 4;
       unsigned maxMultipleBytes =
           axisInfoAnalysis.getAxisInfo(val)->getDivisibility(order[0]);
       unsigned maxMultiple = std::max(maxMultipleBytes / elemNumBytes, 1u);
       unsigned maxContig =
           axisInfoAnalysis.getAxisInfo(val)->getContiguity(order[0]);
       unsigned alignment = std::min(maxMultiple, maxContig);
+      // limit max ele-number of thread
       unsigned currPerThread = std::min(alignment, 128 / elemNumBits);
       perThread = std::max(perThread, currPerThread);
     }

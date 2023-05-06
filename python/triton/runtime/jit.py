@@ -322,6 +322,7 @@ def {self.fn.__name__}({', '.join(self.arg_names)}, grid, num_warps=4, num_stage
       if not self._call_hook(key, signature, device, constants, num_warps, num_stages, extern_libs, configs):
         bin = triton.compile(self, signature=signature, device=device, constants=constants, num_warps=num_warps, num_stages=num_stages, extern_libs=extern_libs, configs=configs, debug=self.debug)
         if not warmup:
+            print(\'bin: \', bin)
             bin.c_wrapper(grid_0, grid_1, grid_2, bin.num_warps, bin.shared, stream, bin.cu_function, triton.compiler.CompiledKernel.launch_enter_hook, triton.compiler.CompiledKernel.launch_exit_hook, bin, *args)
         self.cache[device][key] = bin
         return bin
@@ -332,6 +333,7 @@ def {self.fn.__name__}({', '.join(self.arg_names)}, grid, num_warps=4, num_stage
                  "cache": self.cache, "triton": triton,
                  "get_current_device": get_current_device,
                  "set_current_device": set_current_device}
+        print("src code:{}".format(src))
         exec(src, scope)
         return scope[self.fn.__name__]
 
@@ -387,7 +389,11 @@ def {self.fn.__name__}({', '.join(self.arg_names)}, grid, num_warps=4, num_stage
     # the user might want to monkey-patch self.src dynamically.
     # Our unit tests do this, for example.
     def parse(self):
+        import pdb
+        pdb.set_trace()
+        print("parse src: {}".format(self.src))
         tree = ast.parse(self.src)
+        print("parsed tree: {}".format(tree))
         assert isinstance(tree, ast.Module)
         assert len(tree.body) == 1
         assert isinstance(tree.body[0], ast.FunctionDef)

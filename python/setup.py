@@ -74,7 +74,8 @@ def get_llvm_package_info():
 
 
 def get_thirdparty_packages(triton_cache_path):
-    packages = [get_pybind11_package_info(), get_llvm_package_info()]
+    #packages = [get_pybind11_package_info(), get_llvm_package_info()]
+    packages = [get_pybind11_package_info()]
     thirdparty_cmake_args = []
     for p in packages:
         package_root_dir = os.path.join(triton_cache_path, p.package)
@@ -100,6 +101,9 @@ def get_thirdparty_packages(triton_cache_path):
             thirdparty_cmake_args.append(f"-D{p.include_flag}={package_dir}/include")
         if p.lib_flag:
             thirdparty_cmake_args.append(f"-D{p.lib_flag}={package_dir}/lib")
+    # add local llvm path
+    thirdparty_cmake_args.append(f"-DLLVM_INCLUDE_DIRS=/home/zgh/Projects/llvm-project/llvm/cmake-build-release/include")
+    thirdparty_cmake_args.append(f"-DLLVM_LIB_DIRS=/home/zgh/Projects/llvm-project/llvm/cmake-build-release/lib")
     return thirdparty_cmake_args
 
 # ---- package data ---
@@ -217,6 +221,7 @@ class CMakeBuild(build_ext):
             build_args += ["--", "/m"]
         else:
             cmake_args += ["-DCMAKE_BUILD_TYPE=" + cfg]
+            cmake_args += ["-G Ninja"]
             max_jobs = os.getenv("MAX_JOBS", str(2 * os.cpu_count()))
             build_args += ['-j' + max_jobs]
 
@@ -228,8 +233,12 @@ class CMakeBuild(build_ext):
                            "-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld",
                            "-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld"]
 
+        cmake_args += ["-DCMAKE_C_COMPILE=/home/zgh/Projects/llvm-project/llvm/cmake-build-release/bin/clang",
+                       "-DCMAKE_CXX_COMPILE=/home/zgh/Projects/llvm-project/llvm/cmake-build-release/bin/clang++"]
         env = os.environ.copy()
         cmake_dir = self.get_cmake_dir()
+        print("cmake_dir:{}, base_dir:{}, cmake_args:{}".format(cmake_dir, self.base_dir, cmake_args))
+        print("build_args:{}".format(build_args))
         subprocess.check_call(["cmake", self.base_dir] + cmake_args, cwd=cmake_dir, env=env)
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=cmake_dir)
 
